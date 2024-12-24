@@ -15,7 +15,7 @@ module.exports = (sequelize, DataTypes) => {
   }
   Phonebook.init({
     name: DataTypes.STRING,
-    phone: DataTypes.INTEGER,
+    phone: DataTypes.STRING,
     avatar: DataTypes.STRING
   }, {
     sequelize,
