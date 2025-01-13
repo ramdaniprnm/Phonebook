@@ -23,4 +23,6 @@ yarn-debug.log*
 yarn-error.log*
 
 # gitignore images
-public/images/*
+phonebook/public/images/*
+/public/images/
+public/images/
