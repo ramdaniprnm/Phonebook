@@ -8,8 +8,7 @@ const path = require('path');
 const fs = require('fs');
 
 /* GET user listing. */
-router.get('/', async function (req, res) {
-
+router.get('/', async (req, res) => {
   try {
     const { page = '1', limit = '10', keyword = '', sort = 'asc' } = req.query;
     const { count, rows } = await Phonebook.findAndCountAll({
@@ -36,33 +35,24 @@ router.get('/', async function (req, res) {
   }
 });
 
-const avatarValidation = async (req, res, next) => {
-  const allowedFiles = /(\.jpg|\.jpeg|\.png|\.gif)$/i;
+router.get('/:id', async (req, res) => {
   try {
-    const getData = await Phonebook.findByPk(id);
-    if (getData === null || !id || (id && id.trim() === '' || id && isNaN(id) || id && !getData)) {
-      throw new Error('Not found');
+    const { id } = req.params;
+    const data = await Phonebook.findByPk(id);
+    if (data === null) {
+      return res.status(404).json({ error: 'User not found' });
     }
-    if (!req.files || Object.keys(req.files).length === 0 || !req.files.avatar) {
-      throw new Error('No files were uploaded');
-    }
-    if (!allowedExtensions.exec(req.files.avatar.name)) {
-      throw new Error('File must be an image');
-    }
-    next();
-  } catch (error) {
-    if (error.message === 'Not found') {
-      res.status(404).json({ error: error.message });
-    } else {
-      res.status(400).json({ error: error.message });
-    }
+    res.status(200).json(data);
+  } catch (error) {  // Added error parameter
+    res.status(500).json({ error: error.message });
   }
-};
+});
 
-router.post('/', avatarValidation, async (req, res, next) => {
+// Add middleware to POST route
+router.post('/', async (req, res, next) => {
   try {
     const { name, phone } = req.body;
-    const defaultAvatarFile = 'default.png'
+    const defaultAvatarFile = 'default.png';
     const defaultAvatarPath = path.join(__dirname, '../public/images', defaultAvatarFile);
     const users = await Phonebook.create({ name, phone, avatar: defaultAvatarFile });
     const uploadDir = path.join(__dirname, '../public/images', users.id.toString());
@@ -70,69 +60,78 @@ router.post('/', avatarValidation, async (req, res, next) => {
 
     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
     fs.copyFileSync(defaultAvatarPath, uploadPath);
-    await sharp(defaultAvatarPath).resize(250, 256).toFormat('jpeg, png, jpg').toFile(uploadPath);
+    await sharp(defaultAvatarPath).resize(250, 256).toFormat('jpeg').toFile(uploadPath);
     res.status(201).json(users)
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.put('/:id', async function (req, res, next) {
+// Add middleware to PUT route
+router.put('/:id', async (req, res, next) => {
   try {
-    const users = await Phonebook.update(
+    const { id } = req.params;
+    const [updated, data] = await Phonebook.update(
       req.body,
       {
-        where: {
-          id: req.params.id
-        },
+        where: { id },
         returning: true,
         plain: true
-      },
+      }
     );
-    res.status(201).json(users)
+    if (updated === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.status(200).json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-router.put('/:id/avatar', async function (req, res, next) {
+router.put('/:id/avatar', async (req, res, next) => {
   try {
     const { id } = req.params;
     const avatarFile = req.files.avatar;
     const fileName = `${id}${moment().format('YYYYMMDDHHmmss')}_avatar.jpg`;
     const uploadDir = path.join(__dirname, '../public/images', id.toString());
-    const uploadPath = path.join(uploadDir, `${fileName}`);
-    const oldAvatarPath = await Phonebook.findByPk(id);
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir); {
-      if (oldAvatarPath.avatar) {
-        fs.unlinkSync(path.join(uploadDir, oldAvatarPath.avatar));
-      }
+    const uploadPath = path.join(uploadDir, fileName);
+    const userData = await Phonebook.findByPk(id);
+
+    if (!userData) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (!fs.existsSync(uploadDir)) {
       fs.mkdirSync(uploadDir, { recursive: true });
-      fs.writeFileSync(uploadPath, avatarFile.buffer);
     }
-    avatarFile.mv(uploadPath)
-    const users = await Phonebook.update({
-      avatar: fileName,
-    }, {
-      where: {
-        id: id
+
+    if (userData.avatar) {
+      const oldAvatarPath = path.join(uploadDir, userData.avatar);
+      if (fs.existsSync(oldAvatarPath)) {
+        fs.unlinkSync(oldAvatarPath);
       }
-    }, {
-      returning: true,
-      plain: true
-    })
-    if (users[0] === 0) {
-      res.status(400).json({ error: 'User not found' });
-    } else {
-      res.status(201).json(users[1]);
     }
+
+    await avatarFile.mv(uploadPath);
+    const [updated, data] = await Phonebook.update(
+      { avatar: fileName },
+      {
+        where: { id },
+        returning: true,
+        plain: true
+      }
+    );
+
+    if (updated === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.status(200).json(data);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-
-router.delete('/:id', async function (req, res, next) {
+router.delete('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
     const data = await Phonebook.findByPk(id);
@@ -145,9 +144,9 @@ router.delete('/:id', async function (req, res, next) {
       }
     );
     if (result === 0) {
-      res.status(400).json({ error: 'User not found' });
+      res.status(404).json({ error: 'User not found' });
     } else {
-      if (fs.existsSync(avatarPath)) fs.rmSync(avatarPath);
+      if (fs.existsSync(avatarPath)) fs.rmSync(avatarPath, { recursive: true });
       res.status(200).json(data)
     }
   } catch (error) {
