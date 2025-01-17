@@ -54,16 +54,16 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res, next) => {
   try {
     const { name, phone } = req.body;
-    const defaultAvatarPath = path.join(__dirname, '../public/images',);
-    const users = await Phonebook.create({ name, phone, avatar });
+    const avatarImage = 'default.png';
+    const defaultAvatarPath = path.join(__dirname, '../public/images', avatarImage);
+    const users = await Phonebook.create({ name, phone, avatar: avatarImage });
     const uploadDir = path.join(__dirname, '../public/images', users.id.toString());
     console.log(`path images`, uploadDir);
-
-    const uploadPath = path.join(uploadDir);
+    const uploadPath = path.join(uploadDir, `${avatarImage}`);
 
     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
     fs.copyFileSync(defaultAvatarPath, uploadPath);
-    await sharp(defaultAvatarPath).resize(256, 256).toFormat('jpeg').toFile(uploadPath);
+    await sharp(defaultAvatarPath).resize(256, 256).toFormat('png').toFile(uploadPath);
     res.status(201).json(users)
   } catch (error) {
     res.status(500).json({ error: error.message });
