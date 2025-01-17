@@ -7,6 +7,8 @@ const sharp = require('sharp');
 const path = require('path');
 const fs = require('fs');
 
+
+
 /* GET user listing. */
 router.get('/', async (req, res) => {
   try {
@@ -14,8 +16,8 @@ router.get('/', async (req, res) => {
     const { count, rows } = await Phonebook.findAndCountAll({
       where: {
         [Op.or]: [
-          { name: { [Op.like]: `%${keyword}%` } },
-          { phone: { [Op.like]: `%${keyword}%` } }
+          { name: { [Op.iLike]: `%${keyword}%` } },
+          { phone: { [Op.iLike]: `%${keyword}%` } }
         ]
       },
       limit: parseInt(limit),
@@ -52,15 +54,16 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res, next) => {
   try {
     const { name, phone } = req.body;
-    const defaultAvatarFile = 'default.png';
-    const defaultAvatarPath = path.join(__dirname, '../public/images', defaultAvatarFile);
-    const users = await Phonebook.create({ name, phone, avatar: defaultAvatarFile });
+    const defaultAvatarPath = path.join(__dirname, '../public/images',);
+    const users = await Phonebook.create({ name, phone, avatar });
     const uploadDir = path.join(__dirname, '../public/images', users.id.toString());
-    const uploadPath = path.join(uploadDir, defaultAvatarFile);
+    console.log(`path images`, uploadDir);
+
+    const uploadPath = path.join(uploadDir);
 
     if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
     fs.copyFileSync(defaultAvatarPath, uploadPath);
-    await sharp(defaultAvatarPath).resize(250, 256).toFormat('jpeg').toFile(uploadPath);
+    await sharp(defaultAvatarPath).resize(256, 256).toFormat('jpeg').toFile(uploadPath);
     res.status(201).json(users)
   } catch (error) {
     res.status(500).json({ error: error.message });
